@@ -1,68 +1,51 @@
-import asyncio
-from typing import Optional
+from app.sandbox.core.manager import SandboxManager
+# 修正：直接从 app.config 导入所有需要的、大写的配置变量
+from app.config import (
+    SANDBOX_IMAGE,
+    SANDBOX_TIMEOUT,
+    SANDBOX_MEMORY_LIMIT,
+    SANDBOX_CPU_LIMIT,
+    SANDBOX_NETWORK_ENABLED,
+    SANDBOX_WORKING_DIRECTORY,
+)
 
-from app.config import get_config
-from app.exceptions import SandboxError
-from app.logger import logger
-from app.sandbox.core.sandbox import DockerSandbox
+# 使用导入的变量来初始化沙箱管理器
+# 注意：manager 的参数名为 'working_dir'
+sandbox_manager = SandboxManager(
+    image=SANDBOX_IMAGE,
+    timeout=SANDBOX_TIMEOUT,
+    working_dir=SANDBOX_WORKING_DIRECTORY,
+    memory_limit=SANDBOX_MEMORY_LIMIT,
+    cpu_limit=SANDBOX_CPU_LIMIT,
+    network_enabled=SANDBOX_NETWORK_ENABLED,
+)
 
 
 class SandboxClient:
-    _instance: Optional['SandboxClient'] = None
-    _lock = asyncio.Lock()
-
-    def __init__(self):
-        if not hasattr(self, '_initialized'):
-            self._sandbox: Optional[DockerSandbox] = None
-            self._initialized = True
-
-    @classmethod
-    async def get_instance(cls) -> 'SandboxClient':
-        async with cls._lock:
-            if cls._instance is None:
-                cls._instance = cls()
-                await cls._instance._initialize_sandbox()
-        return cls._instance
-
-    async def _initialize_sandbox(self):
-        if self._sandbox is None:
-            logger.info("沙箱实例不存在，正在创建新的沙箱...")
-            config = get_config()
-            try:
-                self._sandbox = DockerSandbox(config=config.sandbox)
-                await self._sandbox.create()
-            except Exception as e:
-                logger.error(f"创建沙箱实例时出错: {e}", exc_info=True)
-                self._sandbox = None
-                raise SandboxError(f"创建沙箱实例时出错: {e}") from e
-
+    """
+    一个用于与沙箱环境交互的客户端。
+    此类为在隔离的沙箱中运行命令、管理文件和执行代码提供了高级 API。
+    """
     async def run_command(self, command: str) -> str:
-        if not self._sandbox:
-            raise SandboxError("沙箱未初始化。")
-        try:
-            exit_code, output = await self._sandbox.run_command(command)
-            if exit_code == 0:
-                return output
-            else:
-                return f"命令执行失败，退出码: {exit_code}\n输出:\n{output}"
-        except Exception as e:
-            logger.error(f"执行沙箱命令时发生未知错误: {e}", exc_info=True)
-            return f"执行沙箱命令时发生未知错误: {e}"
+        """在沙箱中运行一个 shell 命令。"""
+        return await sandbox_manager.run_command(command)
 
-    async def write_file(self, path: str, content: str) -> None:
-        if not self._sandbox:
-            raise SandboxError("沙箱未初始化。")
-        await self._sandbox.write_file(path, content)
+    async def run_python(self, code: str) -> str:
+        """在沙箱中执行一个 Python 脚本。"""
+        return await sandbox_manager.run_python(code)
+
+    async def write_file(self, path: str, content: str) -> str:
+        """向沙箱中的一个文件写入内容。"""
+        return await sandbox_manager.write_file(path, content)
 
     async def read_file(self, path: str) -> str:
-        if not self._sandbox:
-            raise SandboxError("沙箱未初始化。")
-        return await self._sandbox.read_file(path)
+        """从沙箱中读取一个文件的内容。"""
+        return await sandbox_manager.read_file(path)
 
-    async def close(self):
-        async with self._lock:
-            if self._sandbox:
-                logger.info("请求关闭沙箱...")
-                await self._sandbox.cleanup()
-                self._sandbox = None
-            SandboxClient._instance = None
+    async def list_files(self, path: str) -> str:
+        """列出沙箱中一个目录下的文件。"""
+        return await sandbox_manager.list_files(path)
+
+
+# 创建客户端的单例实例，供其他模块使用
+sandbox_client = SandboxClient()

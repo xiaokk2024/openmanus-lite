@@ -10,7 +10,7 @@ level = "INFO" # 日志级别，可以是 DEBUG, INFO, WARNING, ERROR, CRITICAL
 api_type = 'ppio'
 model = "deepseek/deepseek-v3-0324"                                # The LLM model to use
 base_url = "https://api.ppinfra.com/v3/openai"                     # API endpoint URL
-# api_key = "...."                                      # Your API key
+#api_key = "..."                                      # Your API key
 max_tokens = 8192                                                 # Maximum number of tokens in the response
 temperature = 0.0
 
@@ -27,7 +27,7 @@ memory_limit = "512m"
 # CPU 核心数限制（例如: 1.0, 1.5）
 cpu_limit = 1.0
 # 是否启用网络
-network_enabled = False
+network_enabled = true
 
 # --------------------------------------------------------------------------------------------------
 # Agent 配置

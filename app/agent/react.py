@@ -1,67 +1,100 @@
-from typing import Dict, List
-
-from app.exceptions import AgentError
+import re
+import xml.etree.ElementTree as ET
+from app.agent.base import BaseAgent
+from app.llm import LLM
 from app.logger import logger
-from app.tool.base import BaseTool
-from app.tool.bash import BashTool
-from app.tool.file_operators import ListFilesTool, ReadFileTool, WriteFileTool
-from app.tool.python_execute import PythonExecuteTool
-from app.tool.terminate import TerminateTool
+from app.schema import Message, Thought, Action, Observation
 
 
-class ToolCollection:
-    """
-    ToolCollection 类用于管理和执行工具。
-    """
+class ReActAgent(BaseAgent):
+    def __init__(self, llm: LLM, max_iterations: int):
+        super().__init__(llm, max_iterations)
+        from app.tool.bash import BashTool
+        from app.tool.file_operators import ReadFileTool, WriteFileTool, ListFilesTool
+        from app.tool.python_execute import PythonExecuteTool
+        from app.tool.terminate import TerminateTool
+        from app.tool.tool_collection import ToolCollection
 
-    def __init__(self):
-        self.tools: Dict[str, BaseTool] = {
-            "bash": BashTool(),
-            "list_files": ListFilesTool(),
-            "read_file": ReadFileTool(),
-            "write_file": WriteFileTool(),
-            "python_execute": PythonExecuteTool(),
-            "terminate": TerminateTool(),
-        }
+        self.tool_collection = ToolCollection([
+            BashTool(),
+            ReadFileTool(),
+            WriteFileTool(),
+            ListFilesTool(),
+            PythonExecuteTool(),
+            TerminateTool(),
+        ])
 
-    def get_tool(self, tool_name: str) -> BaseTool:
+    def get_prompt(self, task: str) -> str:
+        return ""
+
+    def _clean_llm_response(self, response: str) -> str:
         """
-        获取指定名称的工具。
-
-        :param tool_name: 工具的名称。
-        :return: 工具实例。
+        清理 LLM 可能返回的多余字符，例如 markdown 代码块。
         """
-        if tool_name not in self.tools:
-            raise AgentError(f"未知工具: {tool_name}")
-        return self.tools[tool_name]
+        # 使用正则表达式查找 ```xml ... ``` 或 ``` ... ``` 并提取其中的内容
+        match = re.search(r"```(xml\n)?(.*)```", response, re.DOTALL)
+        if match:
+            return match.group(2).strip()
+        return response.strip()
 
-    def get_tool_definitions(self) -> List[Dict]:
-        """
-        获取所有工具的定义。
+    async def run(self, task: str):
+        system_prompt = self.get_prompt(task)
+        messages = [Message(role="system", content=system_prompt)]
+        logger.info(f"System prompt:\n{system_prompt}")
 
-        :return: 工具定义的列表。
-        """
-        return [tool.get_definition() for tool in self.tools.values()]
+        for i in range(self.max_iterations):
+            logger.info(f"Thinking... (iteration {i + 1}/{self.max_iterations})")
+            response = await self.llm.chat(messages)
+            message_content = response.choices[0]["message"]["content"]
+            messages.append(Message(role="assistant", content=message_content))
 
-    def get_tool_descriptions(self) -> str:
-        """
-        获取所有工具的描述。
+            logger.info(f"Assistant: {message_content}")
 
-        :return: 工具描述的字符串。
-        """
-        return "\n".join([tool.get_description() for tool in self.tools.values()])
+            try:
+                # ===============================================================================
+                # 关键修正：使用 XML 解析器，而不是 JSON 解析器
+                # ===============================================================================
+                cleaned_content = self._clean_llm_response(message_content)
+                root = ET.fromstring(cleaned_content)
 
-    async def execute_tool(self, tool_name: str, **kwargs) -> str:
-        """
-        异步执行指定的工具。
+                # 1. 解析 Thought
+                thought_node = root.find('thought')
+                if thought_node is None:
+                    raise ValueError("在 LLM 的响应中未找到 <thought> 标签")
+                thought = Thought(thought=thought_node.text.strip())
+                logger.info(f"Thought: {thought.thought}")
 
-        :param tool_name: 要执行的工具的名称。
-        :param kwargs: 工具的参数。
-        :return: 工具执行的结果。
-        """
-        try:
-            tool = self.get_tool(tool_name)
-            return await tool.execute(**kwargs)
-        except Exception as e:
-            logger.error(f"执行工具 '{tool_name}' 时发生未知错误: {e}", exc_info=True)
-            return f"未知错误: {e}"
+                # 2. 解析 Action
+                action_node = root.find('action')
+                if action_node is None:
+                    raise ValueError("在 LLM 的响应中未找到 <action> 标签")
+
+                tool_name_node = action_node.find('tool_name')
+                if tool_name_node is None:
+                    raise ValueError("在 <action> 标签中未找到 <tool_name>")
+                tool_name = tool_name_node.text.strip()
+
+                parameters_node = action_node.find('parameters')
+                parameters = {}
+                if parameters_node is not None:
+                    for param_node in parameters_node:
+                        parameters[param_node.tag] = param_node.text.strip() if param_node.text else ""
+
+                action = Action(tool_name=tool_name, parameters=parameters)
+                logger.info(f"Action: {action.tool_name}({action.parameters})")
+
+                # 3. 执行工具并获取观察结果
+                observation_text = await self.tool_collection.run_tool(action.tool_name, action.parameters)
+                observation = Observation(
+                    tool_name=action.tool_name,
+                    tool_input=str(action.parameters),
+                    observation=observation_text
+                )
+                logger.info(f"Observation: {observation.observation}")
+
+                messages.append(Message(role="user", content=observation.observation))
+
+            except Exception as e:
+                logger.error(f"解析或执行时出错: {e}", exc_info=True)
+                error_message = f"在解析你的响应或执行工具时发生错误: {e}。请检查你的 XML 格式并重试。"
+                messages.append(Message(role="user", content=error_message))

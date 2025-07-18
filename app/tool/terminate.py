@@ -1,18 +1,16 @@
-from typing import Type
-
-from pydantic import BaseModel, Field
-
+from pydantic import Field
 from app.tool.base import BaseTool
 
 
-class TerminateArgs(BaseModel):
-    message: str = Field(..., description="任务完成的最终消息或答案。")
-
 class TerminateTool(BaseTool):
-    name: str = "terminate"
-    description: str = "当任务完成或无法继续时，调用此工具以终止执行并返回最终答案。"
-    args_schema: Type[BaseModel] = TerminateArgs
+    name = "terminate"
+    description = "当你认为任务已成功完成或无法继续时，调用此工具以终止任务。"
 
-    def run(self, message: str) -> str:
-        # 这个工具的特殊之处在于它的调用会由 Agent 逻辑捕获并停止循环
-        return message
+    def get_args_schema(self) -> dict:
+        return {
+            "message": (str, Field(..., description="任务终止的原因或成功信息。"))
+        }
+
+    async def _execute(self, message: str, **kwargs):
+        from app.exceptions import Terminate
+        raise Terminate(message)

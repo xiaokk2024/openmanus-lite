@@ -1,54 +1,34 @@
+import os
 import toml
-from pydantic import BaseModel, Field
+from dotenv import load_dotenv
 
-# 定义大语言模型配置的数据模型
-class LLMSettings(BaseModel):
-    model: str = "deepseek/deepseek-v3-0324"
-    api_key: str = "YOUR_API_KEY"
-    base_url: str = "https://api.deepseek.com"
+# 加载 .env 文件中的环境变量
+load_dotenv()
 
-# 定义沙箱配置的数据模型
-class SandboxSettings(BaseModel):
-    image: str = "ubuntu:22.04"
-    working_directory: str = Field("/workspace", alias="work_dir")
-    timeout: int = 60
-    memory_limit: str = "512m"
-    cpu_limit: float = 1.0
-    network_enabled: bool = False
+# 读取配置文件路径，默认为 config/config.toml
+config_path = os.getenv("CONFIG_PATH", "config/config.toml")
+config = toml.load(config_path)
 
-# 定义 Agent 配置的数据模型
-class AgentSettings(BaseModel):
-    agent_name: str = "ManusAgent"
-    max_iterations: int = 10
+# ===============================================================================
+# LLM (大语言模型) 配置
+# ===============================================================================
+LLM_MODEL = config["llm"]["model"]
+LLM_TEMPERATURE = config["llm"]["temperature"]
+LLM_API_KEY = os.getenv("LLM_API_KEY", config["llm"]["api_key"])
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", config["llm"]["base_url"])
 
-# 定义总的配置模型
-class Config(BaseModel):
-    llm: LLMSettings
-    sandbox: SandboxSettings
-    agent: AgentSettings
+# ===============================================================================
+# Sandbox (沙箱) 配置
+# ===============================================================================
+SANDBOX_IMAGE = config["sandbox"]["image"]
+SANDBOX_WORKING_DIRECTORY = config["sandbox"]["working_directory"]
+SANDBOX_TIMEOUT = config["sandbox"]["timeout"]
+SANDBOX_MEMORY_LIMIT = config["sandbox"]["memory_limit"]
+SANDBOX_CPU_LIMIT = config["sandbox"]["cpu_limit"]
+SANDBOX_NETWORK_ENABLED = config["sandbox"]["network_enabled"]
 
-# 全局配置变量
-_config: Config | None = None
-
-def load_config(path: str = "config/config.toml") -> Config:
-    """
-    从 toml 文件加载配置。
-    """
-    global _config
-    if _config is None:
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = toml.load(f)
-            _config = Config(**data)
-        except (FileNotFoundError, ValueError) as e:
-            raise RuntimeError(f"加载或解析配置文件 '{path}' 时出错: {e}") from e
-    return _config
-
-def get_config() -> Config:
-    """
-    获取已加载的配置。如果未加载则先加载。
-    """
-    if _config is None:
-        return load_config()
-    return _config
-
+# ===============================================================================
+# 新增的 Agent (代理) 配置
+# ===============================================================================
+AGENT_NAME = config["agent"]["agent_name"]
+MAX_ITERATIONS = config["agent"]["max_iterations"]

@@ -1,55 +1,40 @@
-import inspect
-import pkgutil
-from typing import Dict, List, Any
-
-from app.logger import get_logger
+import json
+from typing import Dict, List
+from app.schema import ToolSchema
+# 修正：直接导入已经配置好的 logger 实例，而不是一个不存在的 get_logger 函数
+from app.logger import logger
 from app.tool.base import BaseTool
 
-logger = get_logger(__name__)
 
 class ToolCollection:
     """
-    一个集合类，用于自动发现和管理项目中的所有工具。
+    一个管理和执行工具集合的类。
     """
+    def __init__(self, tools: List[BaseTool]):
+        self.tools = {tool.name: tool for tool in tools}
 
-    def __init__(self, tool_packages: List[str] = None):
-        if tool_packages is None:
-            tool_packages = ['app.tool']
-        self.tools: Dict[str, BaseTool] = self._discover_tools(tool_packages)
-        logger.info(f"已加载 {len(self.tools)} 个工具: {list(self.tools.keys())}")
+    def get_tool_schemas(self) -> str:
+        """
+        获取所有工具的 schema 描述，并格式化为 JSON 字符串。
+        """
+        schemas = [tool.get_schema() for tool in self.tools.values()]
+        return json.dumps(schemas, indent=4, ensure_ascii=False)
 
-    def _discover_tools(self, packages: List[str]) -> Dict[str, BaseTool]:
-        """从指定的包中发现所有 BaseTool 的子类"""
-        tools = {}
-        for package_name in packages:
-            package = __import__(package_name, fromlist=["*"])
-            for _, module_name, _ in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
-                try:
-                    module = __import__(module_name, fromlist=["*"])
-                    for name, obj in inspect.getmembers(module):
-                        if inspect.isclass(obj) and issubclass(obj, BaseTool) and obj is not BaseTool:
-                            instance = obj()
-                            if instance.name in tools:
-                                logger.warning(f"发现重复的工具名称 '{instance.name}'。旧的将被覆盖。")
-                            tools[instance.name] = instance
-                except Exception as e:
-                    logger.error(f"加载模块 {module_name} 时发现错误: {e}")
-        return tools
+    async def run_tool(self, tool_name: str, parameters: Dict) -> str:
+        """
+        根据名称和参数运行指定的工具。
 
-    def get_tool(self, name: str) -> BaseTool:
-        """根据名称获取工具实例"""
-        if name not in self.tools:
-            raise KeyError(f"未找到工具: {name}")
-        return self.tools[name]
-
-    def get_tool_definitions(self) -> List[Dict[str, Any]]:
-        """获取所有工具的 JSON Schema 定义列表"""
-        return [tool.get_definition() for tool in self.tools.values()]
-
-    def run_tool(self, tool_name: str, parameters: Dict[str, Any]) -> Any:
-        """执行指定的工具"""
-        tool = self.get_tool(tool_name)
-        return tool.run(**parameters)
-
-# 全局工具集合实例
-tool_collection = ToolCollection()
+        :param tool_name: 要运行的工具的名称。
+        :param parameters: 传递给工具的参数。
+        :return: 工具执行后的观察结果。
+        """
+        if tool_name not in self.tools:
+            return f"错误: 未找到名为 '{tool_name}' 的工具。"
+        try:
+            tool = self.tools[tool_name]
+            # 使用 **parameters 将字典解包为关键字参数
+            observation = await tool(**parameters)
+            return observation
+        except Exception as e:
+            logger.error(f"执行工具 '{tool_name}' 时出错: {e}", exc_info=True)
+            return f"错误: 执行工具 '{tool_name}' 时发生异常: {e}"

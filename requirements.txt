@@ -1,0 +1,15 @@
+# ==============================================================================
+# 文件: openmanus_minimal/requirements.txt
+# 说明: 项目运行所需的核心 Python 依赖。
+# 使用方法: pip install -r requirements.txt
+# ==============================================================================
+
+python-dotenv
+toml
+litellm>=1.34.3
+docker>=7.0.0
+tenacity>=8.2.3
+google-search-results>=2.4.2
+
+# Pydantic for data validation
+pydantic>=2.0.0

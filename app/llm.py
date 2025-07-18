@@ -1,52 +1,49 @@
 import litellm
-from app.logger import logger
-from app.schema import Message, ModelResponse
+import logging
+from typing import List
 
+# [FIX] 导入 LLMSettings 以用于类型提示
+# Import LLMSettings for type hinting
+from app.config import LLMSettings
+
+logger = logging.getLogger(__name__)
 
 class LLM:
     """
-    一个封装了与大语言模型（通过 litellm）交互逻辑的类。
+    A wrapper around the litellm library to interact with Large Language Models.
     """
-    def __init__(self, model: str, api_key: str, base_url: str, temperature: float):
+    def __init__(self, settings: LLMSettings):
         """
-        初始化 LLM 客户端。
+        Initializes the LLM wrapper with the given settings.
 
-        :param model: 要使用的模型名称 (e.g., "deepseek/deepseek-v3-0324")。
-        :param api_key: API 密钥。
-        :param base_url: API 的基础 URL。
-        :param temperature: 生成文本时的温度参数，控制创造性。
+        Args:
+            settings: An LLMSettings object containing model, api_key, etc.
         """
-        self.model = model
-        self.api_key = api_key
-        self.base_url = base_url
-        self.temperature = temperature
+        # [FIX] 在初始化时存储配置，而不是依赖全局变量
+        # Store the configuration at initialization instead of relying on a global variable
+        self.settings = settings
 
-    async def chat(self, messages: list[Message]) -> ModelResponse:
+    async def chat(self, messages: List[dict]) -> str:
         """
-        向大语言模型发送聊天请求。
-
-        :param messages: 一个包含对话历史的消息列表。
-        :return: 来自模型的响应。
+        Sends a chat request to the LLM and returns the response content.
         """
+        logger.info(f"Sending request to LLM model: {self.settings.model}")
         try:
-            final_model_string = f"openai/{self.model}"
-
-            logger.debug(f"向 LLM 发送请求: model='{final_model_string}', messages={messages}")
+            # [FIX] 使用实例变量 self.settings 来获取配置
+            # Use the instance variable self.settings to get the configuration
             response = await litellm.acompletion(
-                model=final_model_string,
-                messages=[message.dict() for message in messages],
-                api_key=self.api_key,
-                base_url=self.base_url,
-                temperature=self.temperature,
+                model=self.settings.model,
+                messages=messages,
+                api_key=self.settings.api_key,
+                base_url=self.settings.base_url,
             )
-            logger.debug(f"从 LLM 收到响应: {response}")
-
-            # ===============================================================================
-            # 最终修正：将 litellm 返回的 ModelResponse 对象转换为字典，
-            # 然后再用它来创建我们自己的 Pydantic 模型实例。
-            # ===============================================================================
-            return ModelResponse(**response.dict())
-
+            content = response.choices[0].message.content
+            if not content:
+                raise ValueError("LLM returned an empty response.")
+            return content
         except Exception as e:
-            logger.error(f"与 LLM 通信时出错: {e}")
+            logger.error(f"Error communicating with LLM: {e}")
+            # 在向上抛出异常之前，可以考虑进行更详细的错误处理
+            # Consider more detailed error handling before re-raising
             raise
+

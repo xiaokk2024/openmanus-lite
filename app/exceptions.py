@@ -1,25 +1,18 @@
-# app/exceptions.py
-
-class BaseError(Exception):
-    """所有自定义异常的基类。"""
+class AgentError(Exception):
+    """Base exception for agent errors."""
     pass
 
-
-class AgentError(BaseError):
-    """与 Agent 相关的错误。"""
-    pass
-
-
-class LLMError(BaseError):
-    """与大语言模型 API 调用相关的错误。"""
-    pass
-
-
-class SandboxError(BaseError):
-    """与沙箱执行相关的错误。"""
-    pass
-
-class SandboxTimeoutError(SandboxError):
-    """沙箱命令执行超时错误。"""
-    pass
+# =================================================================
+# [FIX] 添加 Terminate 异常类
+# 这个异常类用于在任务完成或失败时，安全地终止代理的执行。
+# The `terminate` tool raises this exception to signal that the agent's run should end.
+# =================================================================
+class Terminate(Exception):
+    """
+    Exception raised to terminate the agent's operation.
+    This is used by the 'terminate' tool.
+    """
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
 

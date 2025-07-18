@@ -1,24 +1,37 @@
-# 我们从文件顶部移除了 'from app.agent import ManusAgent'
-from app.agent.base import BaseAgent
+from typing import Type
+from app.agent.base import Agent
+from app.agent.manus import ManusAgent
+from app.config import settings
 from app.llm import LLM
-from app.config import AGENT_NAME, MAX_ITERATIONS
+from app.prompt.manus import get_prompt
+from app.tool.tool_collection import get_tools
 
 
 class AgentFactory:
+    AGENTS = {
+        "Manus": ManusAgent,
+    }
+
     @staticmethod
-    def create_agent(llm: LLM) -> BaseAgent:
-        """
-        根据配置创建并返回一个 Agent 实例。
-        使用方法内部的局部导入来打破启动时的循环依赖。
-        """
-        # 将导入语句移动到方法内部
-        from app.agent.manus import ManusAgent
+    def create_agent(agent_name: str = None) -> Agent:
+        if agent_name is None:
+            agent_name = settings.agent.agent_name
 
-        if AGENT_NAME == "ManusAgent":
-            return ManusAgent(
-                llm=llm,
-                max_iterations=MAX_ITERATIONS,
-            )
-        else:
-            raise ValueError(f"未知的 Agent 名称: {AGENT_NAME}")
+        if agent_name not in AgentFactory.AGENTS:
+            raise ValueError(f"Unknown agent: {agent_name}")
 
+        agent_class = AgentFactory.AGENTS[agent_name]
+
+        # [FIX] 在创建 LLM 实例时传入 LLM 的特定配置
+        # Pass the specific LLM settings when creating the LLM instance
+        llm = LLM(settings=settings.llm)
+
+        tools = get_tools()
+        prompt = get_prompt(tools)
+
+        return agent_class(
+            llm=llm,
+            prompt=prompt,
+            tools=tools,
+            max_iterations=settings.agent.max_iterations,
+        )

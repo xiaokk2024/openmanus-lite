@@ -1,5 +1,13 @@
 import argparse
 import sys
+import os
+import platform
+
+if platform.system() == "Windows":
+    if 'DOCKER_HOST' in os.environ:
+        del os.environ['DOCKER_HOST']
+        print("INFO: 已在程序启动时清除有冲突的 DOCKER_HOST 环境变量。")
+
 from app.agent import create_agent
 from app.config import config, load_config
 from app.logger import get_logger
@@ -27,7 +35,6 @@ def main():
     )
     args = parser.parse_args()
 
-    # 加载配置和初始化日志
     try:
         load_config(args.config)
         logger = get_logger("main")
@@ -43,26 +50,19 @@ def main():
     logger.info("=" * 50)
 
     try:
-        # 创建 Agent 实例
         agent = create_agent(args.agent)
-
-        # 运行 Agent
         final_result = agent.run(args.task)
-
         logger.info("=" * 50)
         logger.info("任务已完成！")
         logger.info(f"最终结果:\n{final_result}")
         logger.info("=" * 50)
-
     except Exception as e:
         logger.error(f"执行过程中发生严重错误: {e}", exc_info=True)
         sys.exit(1)
     finally:
-        # 清理沙箱
         logger.info("正在关闭沙箱...")
         SandboxClient().close()
         logger.info("程序已退出。")
-
 
 if __name__ == "__main__":
     main()

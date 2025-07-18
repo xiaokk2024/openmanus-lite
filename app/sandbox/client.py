@@ -1,7 +1,3 @@
-# ==============================================================================
-# 文件: openmanus_minimal/app/sandbox/client.py
-# 说明: 沙箱客户端 (最终修复版 - 延迟初始化)。
-# ==============================================================================
 from typing import Tuple, Optional
 from app.sandbox.core.manager import get_sandbox, close_sandbox as close_global_sandbox
 from app.logger import get_logger

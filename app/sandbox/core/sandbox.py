@@ -2,7 +2,7 @@ import docker
 from docker.models.containers import Container
 from docker.errors import NotFound
 import os
-import platform  # <--- 在这里新增此行
+import platform
 import uuid
 from typing import Tuple, Optional
 
@@ -17,20 +17,10 @@ class Sandbox:
     管理单个 Docker 容器作为执行环境的沙箱。
     此实现基于用户的参考代码，提供了更健壮的容器管理和文件操作。
     """
-
     def __init__(self, container_id: Optional[str] = None):
         try:
-            # --- 最终修复：强制使用正确的 Windows 连接方式 ---
-            if platform.system() == "Windows":
-                logger.debug("检测到 Windows 系统，强制使用 npipe 连接 Docker。")
-                # 此方法将绕过所有环境变量，直接连接到 Docker Desktop。
-                self.docker_client = docker.DockerClient(base_url='npipe:////./pipe/docker_engine')
-            else:
-                # 在 Linux/macOS 上，标准方法工作良好。
-                logger.debug("检测到非 Windows 系统，使用标准方法连接。")
-                self.docker_client = docker.from_env()
-            # ----------------------------------------------------
-
+            # 还原为标准、跨平台的连接方式
+            self.docker_client = docker.from_env()
             self.docker_client.ping()
             logger.info("成功连接到 Docker daemon。")
         except Exception as e:

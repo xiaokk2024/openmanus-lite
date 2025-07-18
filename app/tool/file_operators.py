@@ -1,7 +1,3 @@
-# ==============================================================================
-# 文件: openmanus_minimal/app/tool/file_operators.py
-# 说明: 使用延迟加载的沙箱客户端，并通过 bash 命令操作文件。
-# ==============================================================================
 from pydantic import BaseModel, Field
 from typing import Type
 from app.tool.base import BaseTool

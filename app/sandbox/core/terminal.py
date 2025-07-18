@@ -1,9 +1,7 @@
 import asyncio
-
+from typing import Tuple
 import docker
-
 from app.logger import logger
-
 
 class AsyncDockerizedTerminal:
     """
@@ -15,7 +13,7 @@ class AsyncDockerizedTerminal:
         self.work_dir = work_dir
         self.env_vars = env_vars or {}
 
-    async def run_command(self, cmd: str, timeout: int) -> tuple[int, str]:
+    async def run_command(self, cmd: str, timeout: int) -> Tuple[int, str]:
         """
         异步执行命令并返回退出码和输出。
 
@@ -39,17 +37,17 @@ class AsyncDockerizedTerminal:
             socket_conn = socket._sock
             socket_conn.setblocking(False)
 
-            output = ""
+            output_bytes = bytearray()
             loop = asyncio.get_event_loop()
 
             async def read_stream():
-                nonlocal output
+                nonlocal output_bytes
                 while True:
                     try:
                         data = await loop.sock_recv(socket_conn, 4096)
                         if not data:
                             break
-                        output += data.decode('utf-8', errors='ignore')
+                        output_bytes.extend(data)
                     except BlockingIOError:
                         await asyncio.sleep(0.01)
                     except ConnectionAbortedError:
@@ -63,7 +61,6 @@ class AsyncDockerizedTerminal:
                 await asyncio.wait_for(read_stream(), timeout=timeout)
             except asyncio.TimeoutError:
                 logger.warning(f"Command timed out after {timeout} seconds.")
-                # Even on timeout, we need to get the exit code.
             finally:
                 try:
                     socket.close()
@@ -73,11 +70,12 @@ class AsyncDockerizedTerminal:
             inspect_result = self.client.exec_inspect(exec_id)
             exit_code = inspect_result.get('ExitCode')
 
-            # When a command times out, exit code might be None.
-            if exit_code is None:
-                return -1, f"Command timed out and exit code could not be determined.\nOutput captured:\n{output}"
+            output_str = output_bytes.decode('utf-8', errors='ignore')
 
-            return exit_code, output
+            if exit_code is None:
+                return -1, f"Command timed out and exit code could not be determined.\nOutput captured:\n{output_str}"
+
+            return exit_code, output_str
 
         except Exception as e:
             logger.error(f"Failed to run command in terminal: {e}", exc_info=True)

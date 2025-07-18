@@ -1,4 +1,3 @@
-from typing import Type
 from app.agent.base import BaseAgent
 from app.agent.manus import ManusAgent
 from app.exceptions import AgentError

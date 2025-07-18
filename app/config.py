@@ -1,60 +1,54 @@
-import os
 import toml
 from pydantic import BaseModel, Field
-from typing import Optional
 
-class LogConfig(BaseModel):
-    level: str = "INFO"
+# 定义大语言模型配置的数据模型
+class LLMSettings(BaseModel):
+    model: str = "deepseek/deepseek-v3-0324"
+    api_key: str = "YOUR_API_KEY"
+    base_url: str = "https://api.deepseek.com"
 
-class LLMConfig(BaseModel):
-    model: str = "gpt-4o"
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None # <--- 在这里新增此行
-    temperature: float = 0.0
-    top_p: float = 1.0
-    max_tokens: int = 4096
-
-class SandboxConfig(BaseModel):
-    image_name: str = "ubuntu:22.04"
-    workspace_mount_path: str = "/workspace"
-    timeout: int = 120
-    network_enabled: bool = False
+# 定义沙箱配置的数据模型
+class SandboxSettings(BaseModel):
+    image: str = "ubuntu:22.04"
+    working_directory: str = Field("/workspace", alias="work_dir")
+    timeout: int = 60
     memory_limit: str = "512m"
     cpu_limit: float = 1.0
+    network_enabled: bool = False
 
+# 定义 Agent 配置的数据模型
+class AgentSettings(BaseModel):
+    agent_name: str = "ManusAgent"
+    max_iterations: int = 10
+
+# 定义总的配置模型
 class Config(BaseModel):
-    workspace_dir: str = "workspace"
-    log: LogConfig = LogConfig()
-    llm: LLMConfig = LLMConfig()
-    sandbox: SandboxConfig = SandboxConfig()
+    llm: LLMSettings
+    sandbox: SandboxSettings
+    agent: AgentSettings
 
-_config: Optional[Config] = None
+# 全局配置变量
+_config: Config | None = None
 
-def load_config(config_file: str = "config/config.toml") -> Config:
-    """加载 TOML 配置文件并解析为 Pydantic 模型"""
+def load_config(path: str = "config/config.toml") -> Config:
+    """
+    从 toml 文件加载配置。
+    """
     global _config
     if _config is None:
         try:
-            with open(config_file, "r", encoding="utf-8") as f:
-                config_data = toml.load(f)
-            _config = Config.model_validate(config_data)
-
-            # 优先从环境变量加载 API Key
-            if "OPENAI_API_KEY" in os.environ:
-                _config.llm.api_key = os.environ["OPENAI_API_KEY"]
-
-        except FileNotFoundError:
-            print(f"错误: 配置文件 '{config_file}' 未找到。")
-            # 创建一个默认配置
-            _config = Config()
-        except Exception as e:
-            print(f"加载配置时出错: {e}")
-            raise
-
-    # 确保工作区目录存在
-    os.makedirs(_config.workspace_dir, exist_ok=True)
-
+            with open(path, "r", encoding="utf-8") as f:
+                data = toml.load(f)
+            _config = Config(**data)
+        except (FileNotFoundError, ValueError) as e:
+            raise RuntimeError(f"加载或解析配置文件 '{path}' 时出错: {e}") from e
     return _config
 
-# 在模块加载时自动加载配置
-config = load_config()
+def get_config() -> Config:
+    """
+    获取已加载的配置。如果未加载则先加载。
+    """
+    if _config is None:
+        return load_config()
+    return _config
+

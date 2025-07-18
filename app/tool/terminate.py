@@ -1,6 +1,9 @@
-from pydantic import BaseModel, Field
 from typing import Type
+
+from pydantic import BaseModel, Field
+
 from app.tool.base import BaseTool
+
 
 class TerminateArgs(BaseModel):
     message: str = Field(..., description="任务完成的最终消息或答案。")

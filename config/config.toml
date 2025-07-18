@@ -10,21 +10,28 @@ level = "INFO" # 日志级别，可以是 DEBUG, INFO, WARNING, ERROR, CRITICAL
 api_type = 'ppio'
 model = "deepseek/deepseek-v3-0324"                                # The LLM model to use
 base_url = "https://api.ppinfra.com/v3/openai"                     # API endpoint URL
-# api_key = "...."                                      # Your API key
+# api_key = "..."                                      # Your API key
 max_tokens = 8192                                                 # Maximum number of tokens in the response
 temperature = 0.0
 
 # Sandbox (Docker) 配置
 [sandbox]
-# 使用的 Docker 镜像
-image_name = "ubuntu:22.04"
-# 沙箱的工作目录
-workspace_mount_path = "/workspace"
-# 命令执行的默认超时时间（秒）
-timeout = 120
-# 是否开启网络
-network_enabled = false
-# 内存限制 (e.g., "512m", "1g")
+# Docker 镜像
+image = "ubuntu:22.04"
+# Agent 的工作目录
+working_directory = "/workspace"
+# 命令执行超时时间（秒）
+timeout = 60
+# 内存限制（例如: "512m", "1g"）
 memory_limit = "512m"
-# CPU 核心数限制 (e.g., 1.0, 1.5)
+# CPU 核心数限制（例如: 1.0, 1.5）
 cpu_limit = 1.0
+# 是否启用网络
+network_enabled = False
+
+# --------------------------------------------------------------------------------------------------
+# Agent 配置
+# --------------------------------------------------------------------------------------------------
+[agent]
+agent_name = "ManusAgent"
+max_iterations = 10

@@ -1,15 +1,25 @@
-class AgentError(Exception):
-    """当 Agent 执行出错时引发"""
+# app/exceptions.py
+
+class BaseError(Exception):
+    """所有自定义异常的基类。"""
     pass
 
-class ToolError(Exception):
-    """当工具执行出错时引发"""
+
+class AgentError(BaseError):
+    """与 Agent 相关的错误。"""
     pass
 
-class SandboxError(Exception):
-    """当沙箱操作出错时引发"""
+
+class LLMError(BaseError):
+    """与大语言模型 API 调用相关的错误。"""
+    pass
+
+
+class SandboxError(BaseError):
+    """与沙箱执行相关的错误。"""
     pass
 
 class SandboxTimeoutError(SandboxError):
-    """当沙箱操作超时时引发"""
+    """沙箱命令执行超时错误。"""
     pass
+

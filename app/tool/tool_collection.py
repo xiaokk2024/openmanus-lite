@@ -1,8 +1,9 @@
 import inspect
 import pkgutil
-from typing import Dict, Type, List, Any
-from app.tool.base import BaseTool
+from typing import Dict, List, Any
+
 from app.logger import get_logger
+from app.tool.base import BaseTool
 
 logger = get_logger(__name__)
 

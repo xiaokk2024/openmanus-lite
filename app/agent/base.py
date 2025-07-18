@@ -1,25 +1,17 @@
 from abc import ABC, abstractmethod
-from app.schema import AgentState
+
 
 class BaseAgent(ABC):
-    """Agent 的抽象基类"""
-
-    def __init__(self, **kwargs):
-        """
-        初始化 Agent。
-        kwargs 用于接收来自工厂的额外参数。
-        """
-        pass
+    """
+    所有 Agent 的基类。
+    """
 
     @abstractmethod
-    def run(self, task: str) -> str:
+    async def run(self, task: str) -> str:
         """
-        执行任务的入口点。
+        异步运行 Agent 来完成给定的任务。
 
-        Args:
-            task: 要完成的任务描述。
-
-        Returns:
-            任务的最终结果。
+        :param task: 要完成的任务。
+        :return: 任务的最终结果。
         """
         pass

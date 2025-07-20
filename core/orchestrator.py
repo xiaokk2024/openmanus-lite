@@ -7,21 +7,21 @@ from tools.finish_tool import FinishTool
 
 class Orchestrator:
     """
-    The main task orchestrator.
-    It receives an initial task, coordinates the PlanningAgent and ManusAgent,
-    and drives the entire workflow to completion.
+    主任务编排器。
+    它接收一个初始任务，协调 PlanningAgent 和 ManusAgent，
+    并驱动整个工作流程直至完成。
     """
     def __init__(self, task: str):
         """
-        Initializes the Orchestrator.
+        初始化编排器。
 
-        Args:
-            task (str): The initial user-defined task.
+        参数:
+            task (str): 用户定义的初始任务。
         """
         self.task = task
         self.planning_agent = PlanningAgent()
 
-        # Initialize all available tools for the execution agent
+        # 为执行智能体初始化所有可用工具
         self.tools = [
             ReadFileTool(),
             WriteFileTool(),
@@ -33,58 +33,58 @@ class Orchestrator:
         self.manus_agent = ManusAgent(self.tools)
 
     def _parse_plan(self, plan_str: str) -> list[str]:
-        """A simple parser to convert the LLM's plan string into a list of steps."""
-        if not plan_str or "Error:" in plan_str:
+        """一个简单的解析器，用于将 LLM 的计划字符串转换为步骤列表。"""
+        if not plan_str or "错误:" in plan_str:
             return []
 
         steps = []
         for line in plan_str.split('\n'):
             line = line.strip()
-            # This regex looks for lines starting with a number followed by a dot or parenthesis, or a hyphen.
-            # e.g., "1. ", "1) ", "- "
+            # 这个正则表达式查找以数字后跟点或括号，或以连字符开头的行。
+            # 例如 "1. ", "1) ", "- "
             if line and (line[0].isdigit() or line.startswith('-')):
-                # Clean up the prefix to get the actual step description
+                # 清理前缀以获取实际的步骤描述
                 step_description = ".".join(line.split('.')[1:]).strip()
-                if not step_description: # Handle cases like "- step"
+                if not step_description: # 处理像 "- 步骤" 这样的情况
                     step_description = " ".join(line.split(' ')[1:]).strip()
                 if step_description:
                     steps.append(step_description)
 
-        # If parsing fails, treat the whole string as a single-step plan
+        # 如果解析失败，则将整个字符串视为单步计划
         return steps if steps else [plan_str]
 
     def run(self):
         """
-        Starts and executes the entire task workflow.
+        启动并执行整个任务工作流程。
         """
         print("="*50)
-        print(f"🎬 Starting new task: {self.task}")
+        print(f"🎬 开始新任务: {self.task}")
         print("="*50 + "\n")
 
-        # 1. Planning Phase
-        print("\n" + "-"*20 + " Phase 1: Task Planning " + "-"*20)
+        # 1. 规划阶段
+        print("\n" + "-"*20 + " 阶段 1: 任务规划 " + "-"*20)
         plan_str = self.planning_agent.create_plan(self.task)
         plan = self._parse_plan(plan_str)
 
         if not plan:
-            print("❌ Planning failed. Could not generate a valid plan. Terminating.")
-            return "Error: Planning failed."
+            print("❌ 规划失败。无法生成有效计划。正在终止。")
+            return "错误：规划失败。"
 
-        print("✅ Task planning complete. The plan is as follows:")
+        print("✅ 任务规划完成。计划如下:")
         for i, step in enumerate(plan, 1):
-            print(f"  - Step {i}: {step}")
+            print(f"  - 步骤 {i}: {step}")
         print("-" * 50 + "\n")
 
-        # 2. Execution Phase
-        print("\n" + "-"*20 + " Phase 2: Plan Execution " + "-"*20)
+        # 2. 执行阶段
+        print("\n" + "-"*20 + " 阶段 2: 计划执行 " + "-"*20)
 
         full_history = ""
         for i, step_description in enumerate(plan, 1):
-            print(f"\n▶️ Executing Step {i}/{len(plan)}: {step_description}")
+            print(f"\n▶️ 正在执行步骤 {i}/{len(plan)}: {step_description}")
             print("-" * 40)
 
-            # Call ManusAgent to execute a single step.
-            # It returns the history of thoughts/actions for the step, and a flag indicating if the task is finished.
+            # 调用 ManusAgent 来执行单个步骤。
+            # 它返回该步骤的思考/操作历史记录，以及一个指示任务是否完成的标志。
             step_history, finished, final_summary = self.manus_agent.run_step(
                 task=self.task,
                 plan=plan,
@@ -92,22 +92,22 @@ class Orchestrator:
                 previous_steps_history=full_history
             )
 
-            # Append the history of the completed step to the full history for context in the next step.
+            # 将已完成步骤的历史记录附加到完整历史记录中，以便在下一步骤中作为上下文。
             full_history += step_history + "\n\n"
 
-            # If the agent called the FinishTool, end the process early.
+            # 如果代理调用了 FinishTool，则提前结束流程。
             if finished:
                 print("\n" + "="*50)
-                print(f"✅ Task finished early by agent!")
-                print(f"Final Summary: {final_summary}")
+                print(f"✅ 代理已提前完成任务！")
+                print(f"最终总结: {final_summary}")
                 print("="*50 + "\n")
                 return final_summary
 
-        # This part is reached if the agent completes all steps without calling the FinishTool.
-        # This might indicate a flawed plan, but we can return the full history as the result.
+        # 如果代理在没有调用 FinishTool 的情况下完成了所有步骤，则会执行到这部分。
+        # 这可能表示计划有缺陷，但我们可以将完整的历史记录作为结果返回。
         print("\n" + "="*50)
-        print("🏁 All plan steps have been executed.")
-        print("The 'finish' tool was not called, which might indicate an incomplete plan.")
-        print("Returning the full execution history as the result.")
+        print("🏁 所有计划步骤均已执行。")
+        print("未调用 'finish' 工具，这可能表示计划不完整。")
+        print("将返回完整的执行历史记录作为结果。")
         print("="*50 + "\n")
         return full_history

@@ -4,42 +4,40 @@ import inspect
 
 class BaseTool(ABC):
     """
-    The abstract base class for all tools.
-    It enforces a common structure for all tools, including name, description,
-    and an execute method.
+    所有工具的抽象基类。
+    它为所有工具强制执行一个通用结构，包括名称、描述和一个 execute 方法。
     """
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """The name of the tool, used by the LLM to call it."""
+        """工具的名称，LLM 使用它来调用工具。"""
         pass
 
     @property
     @abstractmethod
     def description(self) -> str:
-        """A detailed description of what the tool does, to help the LLM understand its use."""
+        """关于工具功能的详细描述，以帮助 LLM 理解其用途。"""
         pass
 
     @abstractmethod
     def execute(self, **kwargs) -> str:
-        """The core logic of the tool."""
+        """工具的核心逻辑。"""
         pass
 
     def get_args_str(self) -> str:
         """
-        Automatically inspects the `execute` method's signature to get its arguments string.
-        For example, if execute(file_path: str, content: str), this returns "file_path, content".
-        This helps in dynamically generating the tool list for the prompt.
+        自动检查 `execute` 方法的签名以获取其参数字符串。
+        例如，如果 execute(file_path: str, content: str)，此方法将返回 "file_path, content"。
+        这有助于为提示动态生成工具列表。
         """
         try:
             sig = inspect.signature(self.execute)
-            # Filter for positional or keyword arguments, excluding 'self', 'args', 'kwargs'
+            # 筛选出位置或关键字参数，不包括 'self'、'args'、'kwargs'
             params = [
                 p.name for p in sig.parameters.values()
                 if p.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD and p.name != 'self'
             ]
             return ", ".join(params)
         except Exception:
-            return "" # Return empty string if inspection fails
-
+            return "" # 如果检查失败，则返回空字符串

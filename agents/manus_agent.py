@@ -9,15 +9,15 @@ from tools.base_tool import BaseTool
 
 class ManusAgent:
     """
-    The core execution agent (a ReAct Agent).
-    It follows a plan and executes task steps through a cycle of thought and action.
+    核心执行智能体(基于ReAct机制)。
+    通过思考-行动的循环流程按照计划执行任务步骤。
     """
     def __init__(self, tools: List[BaseTool]):
         """
-        Initializes the ManusAgent.
+        初始化ManusAgent
 
-        Args:
-            tools (List[BaseTool]): A list of all available tool instances.
+        参数:
+            tools (List[BaseTool]): 所有可用工具实例的列表
         """
         self.tools = tools
         self.tool_map = {tool.name: tool for tool in tools}
@@ -25,59 +25,59 @@ class ManusAgent:
         self.tools_list = self._get_tools_list()
 
     def _get_tools_description(self) -> str:
-        """Generates a description string of all tools for the system prompt."""
+        """生成所有工具的描述字符串，用于系统提示"""
         return "\n".join([f"- {tool.name}: {tool.description}" for tool in self.tools])
 
     def _get_tools_list(self) -> str:
-        """Generates a list of tools with names and arguments for the user prompt."""
+        """生成包含工具名称和参数的用户提示列表"""
         return "\n".join([
             f"  - {tool.name}({tool.get_args_str()}): {tool.description}"
             for tool in self.tools
         ])
 
     def _find_json_block(self, text: str) -> Dict[str, Any]:
-        """Extracts the first valid JSON block from the LLM's response."""
-        # Regex to find JSON block enclosed in ```json ... ```
+        """从LLM响应中提取第一个有效的JSON块"""
+        # 使用正则表达式查找被```json ... ```包裹的JSON块
         match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
         if match:
             json_str = match.group(1)
             try:
                 return json.loads(json_str)
             except json.JSONDecodeError as e:
-                print(f"⚠️ Warning: Found a JSON markdown block, but it failed to parse. Error: {e}. Raw string: {json_str}")
-                # Fall through to try parsing the whole text
+                print(f"⚠️ 警告：找到JSON代码块但解析失败。错误: {e}。原始内容: {json_str}")
+                # 继续尝试解析整个文本
 
-        # If no markdown block is found, or if it fails, try to parse the entire string as JSON
+        # 如果未找到代码块或解析失败，尝试将整个字符串解析为JSON
         try:
             return json.loads(text)
         except json.JSONDecodeError:
-            print(f"❌ Could not parse JSON from LLM response: {text}")
+            print(f"❌ 无法从LLM响应解析JSON: {text}")
             return None
 
     def run_step(self, task: str, plan: List[str], current_step_index: int, previous_steps_history: str) -> Tuple[str, bool, str]:
         """
-        Executes a single step from the plan.
+        执行计划中的单个步骤
 
-        Args:
-            task (str): The original top-level task.
-            plan (List[str]): The full list of plan steps.
-            current_step_index (int): The index of the current step to execute (1-based).
-            previous_steps_history (str): The execution history of all previous steps.
+        参数:
+            task (str): 原始顶级任务描述
+            plan (List[str]): 完整计划步骤列表
+            current_step_index (int): 当前要执行的步骤索引(从1开始)
+            previous_steps_history (str): 所有先前步骤的执行历史记录
 
-        Returns:
-            A tuple containing:
-            - step_history (str): The full execution history (thought, action, observation) for the current step.
-            - finished (bool): A flag indicating if the `finish` tool was called.
-            - final_summary (str): The final summary if the `finish` tool was called.
+        返回:
+            包含以下元素的元组:
+            - step_history (str): 当前步骤的完整执行历史(思考+行动+观察)
+            - finished (bool): 表示是否调用"finish"工具的标识
+            - final_summary (str): 若调用"finish"工具则返回最终摘要
         """
         current_step = plan[current_step_index - 1]
         plan_str = "\n".join(f"{i}. {s}" for i, s in enumerate(plan, 1))
 
         local_history = ""
-        max_loops = 10  # Prevents infinite loops for a single step
+        max_loops = 10  # 防止单个步骤陷入无限循环
 
         for i in range(max_loops):
-            print(f"\n🔄 ManusAgent thinking loop {i+1}/{max_loops} for step {current_step_index}...")
+            print(f"\n🔄 ManusAgent思考循环 {i+1}/{max_loops}，当前步骤 {current_step_index}...")
 
             prompt = MANUS_PROMPT_TEMPLATE.format(
                 task=task,
@@ -87,28 +87,28 @@ class ManusAgent:
                 tools_list=self.tools_list
             )
 
-            # Get the next action from the LLM
+            # 从LLM获取下一步行动
             llm_response = call_llm(prompt, instructions=MANUS_INSTRUCTIONS.format(tools_description=self.tools_description))
 
             if "Error:" in llm_response:
-                observation = f"LLM call failed. Details: {llm_response}"
+                observation = f"LLM调用失败。详情: {llm_response}"
                 local_history += f"\nObservation: {observation}"
                 continue
 
             action_json = self._find_json_block(llm_response)
 
             if not action_json:
-                observation = "Invalid action format. Please respond strictly in the specified JSON format, including `thought` and `action` keys."
+                observation = "无效操作格式。请严格使用指定JSON格式响应，包含`thought`和`action`键。"
                 local_history += f"\nObservation: {observation}"
                 continue
 
-            thought = action_json.get("thought", "[No thought provided]")
+            thought = action_json.get("thought", "[未提供思考内容]")
             action = action_json.get("action", {})
             tool_name = action.get("name")
             tool_args = action.get("args", {})
 
-            print(f"🤔 Thought: {thought}")
-            print(f"🎬 Action: Calling tool `{tool_name}` with args: {tool_args}")
+            print(f"🤔 思考: {thought}")
+            print(f"🎬 行动: 调用工具`{tool_name}`，参数: {tool_args}")
 
             local_history += f"\nThought: {thought}\nAction: {json.dumps(action_json, indent=2, ensure_ascii=False)}"
 
@@ -116,24 +116,24 @@ class ManusAgent:
                 tool = self.tool_map[tool_name]
                 try:
                     observation = tool.execute(**tool_args)
-                    print(f"👀 Observation: {observation}")
+                    print(f"👀 观察: {observation}")
                 except Exception as e:
-                    observation = f"Error executing tool '{tool_name}': {e}"
+                    observation = f"执行工具'{tool_name}'出错: {e}"
                     print(f"❌ {observation}")
 
                 local_history += f"\nObservation: {observation}"
 
                 if tool.name == "finish":
-                    return local_history, True, tool_args.get("summary", "No summary was provided.")
+                    return local_history, True, tool_args.get("summary", "未提供摘要")
             else:
-                observation = f"Tool '{tool_name}' not found. Please choose from the available tools list."
+                observation = f"未找到工具'{tool_name}'。请从可用工具列表中选择。"
                 print(f"❌ {observation}")
                 local_history += f"\nObservation: {observation}"
 
-            # A simple heuristic to break the loop if the step seems complete.
-            # A more advanced agent might let the LLM decide when the step is done.
+            # 简单的启发式规则，当观察表明步骤完成时跳出循环
+            # 更高级的智能体可以让LLM决定何时步骤完成
             if "successfully" in observation.lower() or "done" in observation.lower() or "complete" in observation.lower():
-                print(f"✅ Observation suggests the step is complete. Moving to the next step in the plan.")
+                print(f"✅ 观察表明步骤已完成。继续执行计划中的下一步。")
                 break
 
         return local_history, False, ""

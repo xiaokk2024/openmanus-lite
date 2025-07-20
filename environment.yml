@@ -1,0 +1,10 @@
+name: openmanus-lite
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - openai>=1.12.0
+      - python-dotenv
+      - toml

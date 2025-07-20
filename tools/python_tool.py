@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import logging
 import io
 import contextlib
 from tools.base_tool import BaseTool
@@ -8,7 +9,7 @@ class PythonTool(BaseTool):
     description = (
         "执行一段 Python 代码并返回其输出。"
         "⚠️ 警告：此工具在当前进程中直接执行代码，没有沙箱环境。请极其谨慎使用。"
-        "您可以使用 `print()` 来输出结果。代码无法访问外部变量，但可以导入标准库。"
+        "您可以使用 `logging.info()` 来输出结果。代码无法访问外部变量，但可以导入标准库。"
     )
 
     def execute(self, code: str, **kwargs) -> str:
@@ -24,7 +25,7 @@ class PythonTool(BaseTool):
         if not code:
             return "错误：代码不能为空。"
 
-        print(f"正在执行 python 代码:\n---\n{code}\n---")
+        logging.info(f"正在执行 python 代码:\n---\n{code}\n---")
 
         # 创建一个字符串流来捕获 stdout 和 stderr
         output_stream = io.StringIO()

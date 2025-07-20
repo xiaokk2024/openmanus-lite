@@ -17,15 +17,16 @@ class Config:
 
         # --- LLM模型配置 ---
         llm_config = toml_config.get("llm", {})
-        # 优先从环境变量获取API密钥
         self.LLM_API_KEY = os.getenv("LLM_API_KEY", llm_config.get("api_key"))
         self.LLM_BASE_URL = llm_config.get("base_url")
         self.LLM_MODEL = llm_config.get("model")
         self.LLM_MAX_TOKENS = llm_config.get("max_tokens", 4096)
         self.LLM_TEMPERATURE = llm_config.get("temperature", 0.1)
 
-        # --- 工作空间配置 ---
-        self.WORKSPACE_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "workspace")
+        project_root = os.path.dirname(os.path.realpath(__file__))
+        self.LOGS_PATH = os.path.join(project_root, "logs")
+        self.WORKSPACE_PATH = os.path.join(project_root, "workspace")
+        self.RESULTS_PATH = os.path.join(self.WORKSPACE_PATH, "results")
 
     def check_config(self):
         """检查核心配置是否已设置"""
@@ -41,9 +42,10 @@ class Config:
             return False
 
         # 确保工作空间目录存在
-        if not os.path.exists(self.WORKSPACE_PATH):
-            print(f"📂 工作空间目录未找到，正在创建: {self.WORKSPACE_PATH}")
-            os.makedirs(self.WORKSPACE_PATH)
+        for path in [self.LOGS_PATH, self.WORKSPACE_PATH, self.RESULTS_PATH]:
+            if not os.path.exists(path):
+                print(f"📂 目录不存在, 创建: {path}")
+                os.makedirs(path)
 
         return True
 

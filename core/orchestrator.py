@@ -1,3 +1,4 @@
+import logging
 from agents.planning_agent import PlanningAgent
 from agents.manus_agent import ManusAgent
 from tools.file_tools import ReadFileTool, WriteFileTool, ListFilesTool
@@ -57,31 +58,31 @@ class Orchestrator:
         """
         启动并执行整个任务工作流程。
         """
-        print("="*50)
-        print(f"🎬 开始新任务: {self.task}")
-        print("="*50 + "\n")
+        logging.info("="*50)
+        logging.info(f"🎬 开始新任务: {self.task}")
+        logging.info("="*50 + "\n")
 
         # 1. 规划阶段
-        print("\n" + "-"*20 + " 阶段 1: 任务规划 " + "-"*20)
+        logging.info("\n" + "-"*20 + " 阶段 1: 任务规划 " + "-"*20)
         plan_str = self.planning_agent.create_plan(self.task)
         plan = self._parse_plan(plan_str)
 
         if not plan:
-            print("❌ 规划失败。无法生成有效计划。正在终止。")
+            logging.error("❌ 规划失败。无法生成有效计划。正在终止。")
             return "错误：规划失败。"
 
-        print("✅ 任务规划完成。计划如下:")
+        logging.info("✅ 任务规划完成。计划如下:")
         for i, step in enumerate(plan, 1):
-            print(f"  - 步骤 {i}: {step}")
-        print("-" * 50 + "\n")
+            logging.info(f"  - 步骤 {i}: {step}")
+        logging.info("-" * 50 + "\n")
 
         # 2. 执行阶段
-        print("\n" + "-"*20 + " 阶段 2: 计划执行 " + "-"*20)
+        logging.info("\n" + "-"*20 + " 阶段 2: 计划执行 " + "-"*20)
 
         full_history = ""
         for i, step_description in enumerate(plan, 1):
-            print(f"\n▶️ 正在执行步骤 {i}/{len(plan)}: {step_description}")
-            print("-" * 40)
+            logging.info(f"\n▶️ 正在执行步骤 {i}/{len(plan)}: {step_description}")
+            logging.info("-" * 40)
 
             # 调用 ManusAgent 来执行单个步骤。
             # 它返回该步骤的思考/操作历史记录，以及一个指示任务是否完成的标志。
@@ -97,17 +98,17 @@ class Orchestrator:
 
             # 如果代理调用了 FinishTool，则提前结束流程。
             if finished:
-                print("\n" + "="*50)
-                print(f"✅ 代理已提前完成任务！")
-                print(f"最终总结: {final_summary}")
-                print("="*50 + "\n")
+                logging.info("\n" + "="*50)
+                logging.info(f"✅ 代理已提前完成任务！")
+                logging.info(f"最终总结: {final_summary}")
+                logging.info("="*50 + "\n")
                 return final_summary
 
         # 如果代理在没有调用 FinishTool 的情况下完成了所有步骤，则会执行到这部分。
         # 这可能表示计划有缺陷，但我们可以将完整的历史记录作为结果返回。
-        print("\n" + "="*50)
-        print("🏁 所有计划步骤均已执行。")
-        print("未调用 'finish' 工具，这可能表示计划不完整。")
-        print("将返回完整的执行历史记录作为结果。")
-        print("="*50 + "\n")
+        logging.info("\n" + "="*50)
+        logging.info("🏁 所有计划步骤均已执行。")
+        logging.info("未调用 'finish' 工具，这可能表示计划不完整。")
+        logging.info("将返回完整的执行历史记录作为结果。")
+        logging.info("="*50 + "\n")
         return full_history

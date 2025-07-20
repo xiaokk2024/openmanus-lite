@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import subprocess
+import logging
 from tools.base_tool import BaseTool
 from config import AppConfig
 
@@ -25,7 +26,7 @@ class ShellTool(BaseTool):
             return "错误：命令不能为空。"
 
         workspace = AppConfig.WORKSPACE_PATH
-        print(f"正在执行 shell 命令: `{command}` (在 `{workspace}` 中)")
+        logging.info(f"正在执行 shell 命令: `{command}` (在 `{workspace}` 中)")
         try:
             result = subprocess.run(
                 command,

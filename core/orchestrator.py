@@ -96,7 +96,7 @@ class Orchestrator:
             # 将已完成步骤的历史记录附加到完整历史记录中，以便在下一步骤中作为上下文。
             full_history += step_history + "\n\n"
 
-            # 如果代理调用了 FinishTool，则提前结束流程。
+            # 如果智能体调用了 FinishTool，则提前结束流程。
             if finished:
                 logging.info("\n" + "="*50)
                 logging.info(f"✅ 代理已提前完成任务！")

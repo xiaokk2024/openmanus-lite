@@ -20,7 +20,7 @@ class Config:
         self.LLM_API_KEY = os.getenv("LLM_API_KEY", llm_config.get("api_key"))
         self.LLM_BASE_URL = llm_config.get("base_url")
         self.LLM_MODEL = llm_config.get("model")
-        self.LLM_MAX_TOKENS = llm_config.get("max_tokens", 4096)
+        self.LLM_MAX_TOKENS = llm_config.get("max_tokens", 8192)
         self.LLM_TEMPERATURE = llm_config.get("temperature", 0.1)
 
         project_root = os.path.dirname(os.path.realpath(__file__))

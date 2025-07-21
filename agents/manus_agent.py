@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
+import logging
 import re
 from typing import List, Dict, Any, Tuple
 
@@ -55,26 +56,12 @@ class ManusAgent:
             return None
 
     def run_step(self, task: str, plan: List[str], current_step_index: int, previous_steps_history: str) -> Tuple[str, bool, str]:
-        """
-        执行计划中的单个步骤
 
-        参数:
-            task (str): 原始顶级任务描述
-            plan (List[str]): 完整计划步骤列表
-            current_step_index (int): 当前要执行的步骤索引(从1开始)
-            previous_steps_history (str): 所有先前步骤的执行历史记录
-
-        返回:
-            包含以下元素的元组:
-            - step_history (str): 当前步骤的完整执行历史(思考+行动+观察)
-            - finished (bool): 表示是否调用"finish"工具的标识
-            - final_summary (str): 若调用"finish"工具则返回最终摘要
-        """
         current_step = plan[current_step_index - 1]
         plan_str = "\n".join(f"{i}. {s}" for i, s in enumerate(plan, 1))
 
         local_history = ""
-        max_loops = 10  # 防止单个步骤陷入无限循环
+        max_loops = 10
 
         for i in range(max_loops):
             print(f"\n🔄 ManusAgent思考循环 {i+1}/{max_loops}，当前步骤 {current_step_index}...")
@@ -107,19 +94,20 @@ class ManusAgent:
             tool_name = action.get("name")
             tool_args = action.get("args", {})
 
-            print(f"🤔 思考: {thought}")
-            print(f"🎬 行动: 调用工具`{tool_name}`，参数: {tool_args}")
+            logging.info(f"🤔 思考: {thought}")
+            logging.info(f"🎬 行动: 调用工具`{tool_name}`，参数: {tool_args}")
 
             local_history += f"\nThought: {thought}\nAction: {json.dumps(action_json, indent=2, ensure_ascii=False)}"
+            logging.info(f"当前对话历史: {local_history}")
 
             if tool_name in self.tool_map:
                 tool = self.tool_map[tool_name]
                 try:
                     observation = tool.execute(**tool_args)
-                    print(f"👀 观察: {observation}")
+                    logging.info(f"👀 观察: {observation}")
                 except Exception as e:
                     observation = f"执行工具'{tool_name}'出错: {e}"
-                    print(f"❌ {observation}")
+                    logging.info(f"❌ {observation}")
 
                 local_history += f"\nObservation: {observation}"
 
@@ -127,13 +115,12 @@ class ManusAgent:
                     return local_history, True, tool_args.get("summary", "未提供摘要")
             else:
                 observation = f"未找到工具'{tool_name}'。请从可用工具列表中选择。"
-                print(f"❌ {observation}")
+                logging.info(f"❌ {observation}")
                 local_history += f"\nObservation: {observation}"
 
             # 简单的启发式规则，当观察表明步骤完成时跳出循环
-            # 更高级的智能体可以让LLM决定何时步骤完成
             if "successfully" in observation.lower() or "done" in observation.lower() or "complete" in observation.lower():
-                print(f"✅ 观察表明步骤已完成。继续执行计划中的下一步。")
+                logging.info(f"✅ 观察表明步骤已完成。继续执行计划中的下一步。")
                 break
 
         return local_history, False, ""

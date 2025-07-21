@@ -36,8 +36,6 @@ def call_llm(prompt: str, instructions: str = "你是一个乐于助人的助手
 
     logging.info("\n" + "="*50)
     logging.info(f"🤖 正在调用 LLM (模型: {AppConfig.LLM_MODEL})...")
-    logging.info(f"系统指令 (截断): {instructions[:150]}...")
-    logging.info(f"用户提示 (截断): {prompt[:200]}...")
     logging.info("="*50 + "\n")
 
     try:
